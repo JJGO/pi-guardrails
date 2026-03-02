@@ -13,8 +13,8 @@ importers:
   .:
     dependencies:
       '@aliou/pi-utils-settings':
-        specifier: ^0.5.1
-        version: 0.5.1(@mariozechner/pi-coding-agent@0.52.7(ws@8.19.0)(zod@3.25.76))
+        specifier: ^0.6.0
+        version: 0.6.0(@mariozechner/pi-coding-agent@0.52.7(ws@8.19.0)(zod@3.25.76))
       '@aliou/sh':
         specifier: ^0.1.0
         version: 0.1.0
@@ -31,6 +31,12 @@ importers:
       '@changesets/cli':
         specifier: ^2.27.11
         version: 2.29.8(@types/node@25.2.3)
+      '@mariozechner/pi-agent-core':
+        specifier: 0.52.7
+        version: 0.52.7(ws@8.19.0)(zod@3.25.76)
+      '@mariozechner/pi-ai':
+        specifier: 0.52.7
+        version: 0.52.7(ws@8.19.0)(zod@3.25.76)
       '@mariozechner/pi-coding-agent':
         specifier: 0.52.7
         version: 0.52.7(ws@8.19.0)(zod@3.25.76)
@@ -54,8 +60,8 @@ packages:
     peerDependencies:
       '@biomejs/biome': '>=2.0.0'
 
-  '@aliou/pi-utils-settings@0.5.1':
-    resolution: {integrity: sha512-Vrfbd6F0yvkITof0YoXEwMJw/JEM+f/oPhLuB/yEEQbkgzjRcpcpBvxknBknoVQS4BirDENvz5+wUHqFshr7UQ==}
+  '@aliou/pi-utils-settings@0.6.0':
+    resolution: {integrity: sha512-raFMvVlqwWIzCIEIQCZFTYTRUukrC3xa/uHb/Af3WcWwrKk6+qYDAqymXvm7HTWub1H0uDt76XcAOIy/Qt1lXg==}
     peerDependencies:
       '@mariozechner/pi-coding-agent': '>=0.51.0'
     peerDependenciesMeta:
@@ -434,8 +440,8 @@ packages:
     resolution: {integrity: sha512-faGUlTcXka5l7rv0lP3K3vGW/ejRuOS24RR2aSFWREUQqzjgdsuWNo/IiPqL3kWRGt6Ahl2+qcDAwtdeWeuGUw==}
     hasBin: true
 
-  '@mariozechner/pi-agent-core@0.52.12':
-    resolution: {integrity: sha512-fBQdwLMvTteHUP9nJxMjtMpEHH4I8tdGnkerOoCFnS9y03AHdqy96IhtL+zZjw9N3dmVCOVqh8gwGjAGLZT31Q==}
+  '@mariozechner/pi-agent-core@0.52.7':
+    resolution: {integrity: sha512-zthFSKW7aha7R9jKktDWt+pD5qeK0cT1TI6Ge/lqUDsPbjXj/vkyh1/BLJa8KtfKQzJaC0IXtWhUO2LQzyKwsw==}
     engines: {node: '>=20.0.0'}
 
   '@mariozechner/pi-ai@0.52.7':
@@ -783,6 +789,7 @@ packages:
   basic-ftp@5.1.0:
     resolution: {integrity: sha512-RkaJzeJKDbaDWTIPiJwubyljaEPwpVWkm9Rt5h9Nd6h7tEXTJ3VB4qxdZBioV7JO5yLUaOKwz7vDOzlncUsegw==}
     engines: {node: '>=10.0.0'}
+    deprecated: Security vulnerability fixed in 5.2.0, please upgrade
 
   better-path-resolve@1.0.0:
     resolution: {integrity: sha512-pbnl5XzGBdrFU/wT4jqmJVPn2B6UHPBOhzMQkY/SPUPB6QtUXtmBHBIwCbXJol93mOpGMnQyP/+BB19q04xj7g==}
@@ -1556,7 +1563,7 @@ snapshots:
     dependencies:
       '@biomejs/biome': 2.4.2
 
-  '@aliou/pi-utils-settings@0.5.1(@mariozechner/pi-coding-agent@0.52.7(ws@8.19.0)(zod@3.25.76))':
+  '@aliou/pi-utils-settings@0.6.0(@mariozechner/pi-coding-agent@0.52.7(ws@8.19.0)(zod@3.25.76))':
     optionalDependencies:
       '@mariozechner/pi-coding-agent': 0.52.7(ws@8.19.0)(zod@3.25.76)
 
@@ -2323,7 +2330,7 @@ snapshots:
       std-env: 3.10.0
       yoctocolors: 2.1.2
 
-  '@mariozechner/pi-agent-core@0.52.12(ws@8.19.0)(zod@3.25.76)':
+  '@mariozechner/pi-agent-core@0.52.7(ws@8.19.0)(zod@3.25.76)':
     dependencies:
       '@mariozechner/pi-ai': 0.52.7(ws@8.19.0)(zod@3.25.76)
     transitivePeerDependencies:
@@ -2362,7 +2369,7 @@ snapshots:
   '@mariozechner/pi-coding-agent@0.52.7(ws@8.19.0)(zod@3.25.76)':
     dependencies:
       '@mariozechner/jiti': 2.6.5
-      '@mariozechner/pi-agent-core': 0.52.12(ws@8.19.0)(zod@3.25.76)
+      '@mariozechner/pi-agent-core': 0.52.7(ws@8.19.0)(zod@3.25.76)
       '@mariozechner/pi-ai': 0.52.7(ws@8.19.0)(zod@3.25.76)
       '@mariozechner/pi-tui': 0.52.7
       '@silvia-odwyer/photon-node': 0.3.4
