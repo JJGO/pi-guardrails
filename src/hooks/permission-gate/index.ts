@@ -26,6 +26,12 @@ import {
   type CompiledPattern,
   compileCommandPatterns,
 } from "../../utils/matching";
+import {
+  buildPromptTimeoutReason,
+  createPromptCountdown,
+  formatCountdown,
+  selectWithOptionalTimeout,
+} from "../../utils/prompt-timeout";
 import { walkCommands, wordToString } from "../../utils/shell-utils";
 import {
   BUILTIN_KEYWORD_PATTERNS,
@@ -144,17 +150,30 @@ function createPermissionGateConfirmComponent(
   command: string,
   description: string,
   explanation: CommandExplanation | null,
+  timeoutSeconds: number | null,
 ) {
   return (
     tui: { terminal: { rows: number; columns: number }; requestRender(): void },
     theme: MinimalTheme,
     _kb: unknown,
-    done: (result: "allow" | "allow-session" | "deny") => void,
+    done: (result: "allow" | "allow-session" | "deny" | "timeout") => void,
   ) => {
     const container = new Container();
     const redBorder = (s: string) => theme.fg("error", s);
     const dimBorder = (s: string) => theme.fg("dim", s);
     let scrollOffset = 0;
+    let finished = false;
+
+    const finish = (result: "allow" | "allow-session" | "deny" | "timeout") => {
+      if (finished) return;
+      finished = true;
+      countdown.dispose();
+      done(result);
+    };
+
+    const countdown = createPromptCountdown(timeoutSeconds, tui, () => {
+      finish("timeout");
+    });
 
     if (explanation) {
       const explanationBox = new Box(1, 1, (s: string) =>
@@ -205,6 +224,11 @@ function createPermissionGateConfirmComponent(
     container.addChild(commandBottomBorder);
     container.addChild(new Spacer(1));
     container.addChild(new Text(theme.fg("text", "Allow execution?"), 1, 0));
+    const countdownText =
+      timeoutSeconds === null ? null : new Text("", 1, 0);
+    if (countdownText) {
+      container.addChild(countdownText);
+    }
     container.addChild(new Spacer(1));
     container.addChild(
       new Text(
@@ -254,6 +278,19 @@ function createPermissionGateConfirmComponent(
             linesBelow > 0 ? `↓ ${linesBelow} more` : "",
           ),
         );
+
+        const secondsRemaining = countdown.getSecondsRemaining();
+        if (countdownText) {
+          countdownText.setText(
+            secondsRemaining === null
+              ? ""
+              : theme.fg(
+                  "warning",
+                  `Auto-deny in ${formatCountdown(secondsRemaining)}`,
+                ),
+          );
+        }
+
         return container.render(width);
       },
       invalidate: () => container.invalidate(),
@@ -276,17 +313,18 @@ function createPermissionGateConfirmComponent(
           data === "y" ||
           data === "Y"
         ) {
-          done("allow");
+          finish("allow");
         } else if (data === "a" || data === "A") {
-          done("allow-session");
+          finish("allow-session");
         } else if (
           matchesKey(data, Key.escape) ||
           data === "n" ||
           data === "N"
         ) {
-          done("deny");
+          finish("deny");
         }
       },
+      dispose: () => countdown.dispose(),
     };
   };
 }
@@ -527,7 +565,9 @@ export function setupPermissionGateHook(
         }
       }
 
-      type ConfirmResult = "allow" | "allow-session" | "deny";
+      type ConfirmResult = "allow" | "allow-session" | "deny" | "timeout";
+
+      const promptTimeoutSeconds = config.prompts.timeoutSeconds;
 
       // Fallback select options for RPC mode (ctx.ui.custom is unimplemented).
       const SELECT_ALLOW_ONCE = "Allow once";
@@ -540,7 +580,12 @@ export function setupPermissionGateHook(
       ] as const;
 
       let result = await ctx.ui.custom<ConfirmResult>(
-        createPermissionGateConfirmComponent(command, description, explanation),
+        createPermissionGateConfirmComponent(
+          command,
+          description,
+          explanation,
+          promptTimeoutSeconds,
+        ),
       );
 
       // Fallback: ctx.ui.custom() returns undefined in RPC/headless mode
@@ -548,12 +593,15 @@ export function setupPermissionGateHook(
       // Fall back to ctx.ui.select() which works over the RPC protocol.
       // If select() also returns undefined/malformed, deny by default.
       if (result === undefined) {
-        const selection = await ctx.ui.select(
+        const { selection, timedOut } = await selectWithOptionalTimeout(
+          ctx.ui,
           `Dangerous command: ${description}`,
           [...SELECT_OPTIONS],
+          promptTimeoutSeconds,
         );
         if (selection === SELECT_ALLOW_ONCE) result = "allow";
         else if (selection === SELECT_ALLOW_SESSION) result = "allow-session";
+        else if (timedOut) result = "timeout";
         else result = "deny";
       }
 
@@ -572,6 +620,21 @@ export function setupPermissionGateHook(
 
         // Update the local cache so it takes effect immediately
         allowedPatterns.push(...compileCommandPatterns([{ pattern: command }]));
+      }
+
+      if (result === "timeout") {
+        const reason = buildPromptTimeoutReason(
+          promptTimeoutSeconds ?? 0,
+          "dangerous operation",
+        );
+        emitBlocked(pi, {
+          feature: "permissionGate",
+          toolName: "bash",
+          input: event.input,
+          reason,
+        });
+
+        return { block: true, reason };
       }
 
       if (result === "deny") {

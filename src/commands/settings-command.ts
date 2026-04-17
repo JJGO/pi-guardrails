@@ -1105,6 +1105,14 @@ export function registerGuardrailsSettings(pi: ExtensionAPI): void {
         };
       }
 
+      function hasPromptTimeoutOverride(): boolean {
+        return scopedConfig.prompts?.timeoutSeconds !== undefined;
+      }
+
+      function getPromptTimeoutSeconds(): number | null {
+        return scopedConfig.prompts?.timeoutSeconds ?? null;
+      }
+
       function hasExplainModelOverride(): boolean {
         return scopedConfig.permissionGate?.explainModel !== undefined;
       }
@@ -1210,6 +1218,56 @@ export function registerGuardrailsSettings(pi: ExtensionAPI): void {
 
       return [
         { label: "Features", items: featureItems },
+        {
+          label: "Prompts",
+          items: [
+            {
+              id: "prompts.timeoutSeconds",
+              label: "Prompt timeout",
+              description:
+                "Auto-deny guardrails prompts after this many seconds. Leave blank to disable.",
+              currentValue: hasPromptTimeoutOverride()
+                ? getPromptTimeoutSeconds() === null
+                  ? "disabled"
+                  : `${getPromptTimeoutSeconds()}s`
+                : "(inherited)",
+              submenu: (_val: string, submenuDone: (v?: string) => void) =>
+                new SettingsDetailEditor({
+                  title: "Prompt Timeout",
+                  theme: settingsTheme,
+                  onDone: submenuDone,
+                  getDoneSummary: () => {
+                    const timeout = getPromptTimeoutSeconds();
+                    return timeout === null ? "disabled" : `${timeout}s`;
+                  },
+                  fields: [
+                    {
+                      id: "prompts.timeoutSeconds",
+                      type: "text",
+                      label: "Timeout (seconds)",
+                      description:
+                        "Blank disables timeout. Any non-empty value must be a positive integer.",
+                      getValue: () => {
+                        const timeout = getPromptTimeoutSeconds();
+                        return timeout === null ? "" : String(timeout);
+                      },
+                      setValue: (value) => {
+                        const trimmed = value.trim();
+                        if (!trimmed) {
+                          applyDraft("prompts.timeoutSeconds", null);
+                          return;
+                        }
+                        const parsed = Number.parseInt(trimmed, 10);
+                        if (Number.isNaN(parsed) || parsed < 1) return;
+                        applyDraft("prompts.timeoutSeconds", parsed);
+                      },
+                      emptyValueText: "disabled",
+                    },
+                  ],
+                }),
+            },
+          ],
+        },
         {
           label: `Policies (${policyRules.length})`,
           items: policyItems,

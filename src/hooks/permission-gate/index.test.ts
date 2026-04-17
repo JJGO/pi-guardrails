@@ -4,10 +4,11 @@ import type {
   ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
 import { createEventBus } from "@mariozechner/pi-coding-agent";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createEventContext } from "../../../tests/utils/pi-context";
 import type { ResolvedConfig } from "../../config";
 import { configLoader } from "../../config";
+import { buildPromptTimeoutReason } from "../../utils/prompt-timeout";
 import { setupPermissionGateHook } from "./index";
 
 // Mock configLoader so allow-session path doesn't throw.
@@ -42,6 +43,7 @@ const SELECT_DENY = "Deny";
  */
 function makeConfig(
   overrides: Partial<ResolvedConfig["permissionGate"]> = {},
+  promptTimeoutSeconds: number | null = 300,
 ): ResolvedConfig {
   return {
     version: "1",
@@ -50,6 +52,7 @@ function makeConfig(
     features: { policies: false, permissionGate: true, pathAccess: false },
     policies: { rules: [] },
     pathAccess: { mode: "ask", allowedPaths: [] },
+    prompts: { timeoutSeconds: promptTimeoutSeconds },
     permissionGate: {
       patterns: [],
       useBuiltinMatchers: true,
@@ -114,6 +117,36 @@ function bashEvent(command: string): BashToolCallEvent {
 // Tests
 // ---------------------------------------------------------------------------
 
+const TEST_THEME = {
+  fg: (_color: string, text: string) => text,
+  bg: (_color: string, text: string) => text,
+  bold: (text: string) => text,
+};
+
+function createInteractiveCustomStub<T>(): ExtensionContext["ui"]["custom"] {
+  return vi.fn(
+    async (
+      factory: (
+        tui: { terminal: { rows: number; columns: number }; requestRender(): void },
+        theme: typeof TEST_THEME,
+        kb: unknown,
+        done: (result: T) => void,
+      ) => unknown,
+    ) =>
+      new Promise<T>((resolve) => {
+        factory(
+          {
+            terminal: { rows: 40, columns: 120 },
+            requestRender: vi.fn(),
+          },
+          TEST_THEME,
+          {},
+          resolve,
+        );
+      }),
+  ) as ExtensionContext["ui"]["custom"];
+}
+
 describe("permission gate", () => {
   let handle: ReturnType<typeof createMockPi>;
   let handler: ToolCallHandler;
@@ -122,6 +155,10 @@ describe("permission gate", () => {
     handle = createMockPi();
     setupPermissionGateHook(handle.pi, makeConfig());
     handler = handle.getHandler();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("allows safe commands", async () => {
@@ -181,6 +218,24 @@ describe("permission gate", () => {
     expect(ctx.ui.select).toHaveBeenCalled();
   });
 
+  it("blocks dangerous commands when the prompt times out", async () => {
+    vi.useFakeTimers();
+    const ctx = createEventContext({
+      hasUI: true,
+      ui: {
+        custom: createInteractiveCustomStub(),
+      },
+    });
+
+    const pending = handler(bashEvent("sudo rm -rf /"), ctx);
+    await vi.advanceTimersByTimeAsync(300_000);
+
+    await expect(pending).resolves.toEqual({
+      block: true,
+      reason: buildPromptTimeoutReason(300, "dangerous operation"),
+    });
+  });
+
   it("blocks auto-deny patterns without prompting", async () => {
     const { pi, getHandler } = createMockPi();
     setupPermissionGateHook(
@@ -214,6 +269,53 @@ describe("permission gate", () => {
   // ---------------------------------------------------------------------------
   // RPC mode: ctx.ui.select() fallback when ctx.ui.custom() returns undefined
   // ---------------------------------------------------------------------------
+
+  it("passes the shared prompt timeout to select() fallback", async () => {
+    const ctx = createEventContext({
+      hasUI: true,
+      ui: {
+        custom: vi.fn(
+          async () => undefined,
+        ) as ExtensionContext["ui"]["custom"],
+        select: vi.fn(
+          async () => SELECT_ALLOW_ONCE,
+        ) as ExtensionContext["ui"]["select"],
+      },
+    });
+    await handler(bashEvent("sudo rm -rf /"), ctx);
+    expect(ctx.ui.select).toHaveBeenCalledWith(
+      "Dangerous command: superuser command",
+      [SELECT_ALLOW_ONCE, SELECT_ALLOW_SESSION, SELECT_DENY],
+      expect.objectContaining({
+        timeout: 300_000,
+        signal: expect.any(AbortSignal),
+      }),
+    );
+  });
+
+  it("omits timeout options when the shared prompt timeout is disabled", async () => {
+    const { pi, getHandler } = createMockPi();
+    setupPermissionGateHook(pi, makeConfig({}, null));
+    const h = getHandler();
+    const ctx = createEventContext({
+      hasUI: true,
+      ui: {
+        custom: vi.fn(
+          async () => undefined,
+        ) as ExtensionContext["ui"]["custom"],
+        select: vi.fn(
+          async () => SELECT_ALLOW_ONCE,
+        ) as ExtensionContext["ui"]["select"],
+      },
+    });
+
+    await h(bashEvent("sudo rm -rf /"), ctx);
+
+    expect(ctx.ui.select).toHaveBeenCalledWith(
+      "Dangerous command: superuser command",
+      [SELECT_ALLOW_ONCE, SELECT_ALLOW_SESSION, SELECT_DENY],
+    );
+  });
 
   it("falls back to select() when custom() returns undefined and allows on 'Allow once'", async () => {
     const ctx = createEventContext({

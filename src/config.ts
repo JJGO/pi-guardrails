@@ -60,6 +60,10 @@ export interface PathAccessConfig {
   allowedPaths?: string[];
 }
 
+export interface PromptsConfig {
+  timeoutSeconds?: number | null;
+}
+
 export interface GuardrailsConfig {
   version?: string;
   enabled?: boolean;
@@ -81,6 +85,7 @@ export interface GuardrailsConfig {
     rules?: PolicyRule[];
   };
   pathAccess?: PathAccessConfig;
+  prompts?: PromptsConfig;
   // Deprecated. Kept only for migration.
   envFiles?: {
     protectedPatterns?: PatternConfig[];
@@ -118,6 +123,9 @@ export interface ResolvedConfig {
   pathAccess: {
     mode: PathAccessMode;
     allowedPaths: string[];
+  };
+  prompts: {
+    timeoutSeconds: number | null;
   };
   permissionGate: {
     patterns: DangerousPattern[];
@@ -218,6 +226,9 @@ const DEFAULT_CONFIG: ResolvedConfig = {
   pathAccess: {
     mode: "ask",
     allowedPaths: [],
+  },
+  prompts: {
+    timeoutSeconds: 300,
   },
   policies: {
     rules: [

@@ -101,6 +101,16 @@ Blocks access to GPG/GnuPG private keys, keyrings, and configuration. Disabled b
 
 ---
 
+## Prompts
+
+| Setting | Default |
+|---|---|
+| `prompts.timeoutSeconds` | `300` |
+
+`null` disables prompt timeouts entirely.
+
+---
+
 ## Path Access
 
 | Setting | Default |
@@ -113,6 +123,8 @@ Modes:
 - `allow` — no path restrictions
 - `ask` — prompt when accessing paths outside working directory
 - `block` — deny all access outside working directory
+
+When `pathAccess.mode` is `ask`, the prompt auto-denies after `prompts.timeoutSeconds`.
 
 Allowed paths use trailing-slash convention:
 - `/path/to/file` — exact file match
@@ -127,6 +139,8 @@ Limitations:
 ---
 
 ## Default Permission Gate Patterns
+
+Dangerous command confirmation prompts auto-deny after `prompts.timeoutSeconds`.
 
 These commands are detected using AST-based structural matching for accuracy.
 

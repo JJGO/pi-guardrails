@@ -1,6 +1,9 @@
 import { homedir } from "node:os";
 import { dirname } from "node:path";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionUIContext,
+} from "@mariozechner/pi-coding-agent";
 import {
   Container,
   Key,
@@ -17,6 +20,12 @@ import {
   resolveFromCwd,
   toStorageForm,
 } from "../utils/path";
+import {
+  buildPromptTimeoutReason,
+  createPromptCountdown,
+  formatCountdown,
+  selectWithOptionalTimeout,
+} from "../utils/prompt-timeout";
 import { checkPathAccess, type PathAccessState } from "../utils/path-access";
 
 // Grant result type from the UI prompt
@@ -27,7 +36,8 @@ type PromptResult =
   | "allow-dir-session"
   | "allow-file-always"
   | "allow-dir-always"
-  | "deny";
+  | "deny"
+  | "timeout";
 
 // Pending grant to be persisted after all targets pass
 interface PendingGrant {
@@ -102,6 +112,7 @@ function createPromptComponent(
   displayDir: string,
   cwd: string,
   showFileOptions: boolean,
+  timeoutSeconds: number | null,
 ) {
   return (
     tui: { terminal: { columns: number }; requestRender(): void },
@@ -115,6 +126,18 @@ function createPromptComponent(
   ) => {
     const options = showFileOptions ? FILE_OPTIONS : DIR_OPTIONS;
     let selectedIndex = 0;
+    let finished = false;
+
+    const finish = (result: PromptResult) => {
+      if (finished) return;
+      finished = true;
+      countdown.dispose();
+      done(result);
+    };
+
+    const countdown = createPromptCountdown(timeoutSeconds, tui, () => {
+      finish("timeout");
+    });
 
     const container = new Container();
     const border = (s: string) => theme.fg("warning", s);
@@ -148,6 +171,11 @@ function createPromptComponent(
     container.addChild(
       new Text(theme.fg("dim", `  Dir:  ${displayDir}`), 1, 0),
     );
+    const countdownText =
+      timeoutSeconds === null ? null : new Text("", 1, 0);
+    if (countdownText) {
+      container.addChild(countdownText);
+    }
     container.addChild(new Spacer(1));
 
     // Dynamically rendered option lines
@@ -191,6 +219,17 @@ function createPromptComponent(
       render: (width: number) => {
         const innerWidth = Math.max(1, width - 2);
         const contentWidth = Math.max(1, width - 4);
+        const secondsRemaining = countdown.getSecondsRemaining();
+        if (countdownText) {
+          countdownText.setText(
+            secondsRemaining === null
+              ? ""
+              : theme.fg(
+                  "warning",
+                  `Auto-deny in ${formatCountdown(secondsRemaining)}`,
+                ),
+          );
+        }
         const raw = container.render(contentWidth);
         const top = border(`╭${"─".repeat(innerWidth)}╮`);
         const bottom = border(`╰${"─".repeat(innerWidth)}╯`);
@@ -222,13 +261,14 @@ function createPromptComponent(
           return;
         }
         if (matchesKey(data, Key.enter)) {
-          done(options[selectedIndex].result);
+          finish(options[selectedIndex].result);
           return;
         }
         if (matchesKey(data, Key.escape)) {
-          done("deny");
+          finish("deny");
         }
       },
+      dispose: () => countdown.dispose(),
     };
   };
 }
@@ -256,6 +296,45 @@ async function persistGrant(
     ...raw,
     pathAccess: { ...pa, allowedPaths: [...existing, storagePath] },
   });
+}
+
+async function promptForPathAccess(
+  toolName: string,
+  displayPath: string,
+  displayDir: string,
+  cwd: string,
+  showFileOptions: boolean,
+  timeoutSeconds: number | null,
+  ui: ExtensionUIContext,
+): Promise<PromptResult> {
+  const options = showFileOptions ? FILE_OPTIONS : DIR_OPTIONS;
+  const labelToResult = new Map(
+    options.map((option) => [option.label, option.result]),
+  );
+
+  const result = await ui.custom<PromptResult>(
+    createPromptComponent(
+      toolName,
+      displayPath,
+      displayDir,
+      cwd,
+      showFileOptions,
+      timeoutSeconds,
+    ),
+  );
+
+  if (result !== undefined) return result;
+
+  const { selection, timedOut } = await selectWithOptionalTimeout(
+    ui,
+    `Outside workspace access: ${displayPath}`,
+    options.map((option) => option.label),
+    timeoutSeconds,
+  );
+  if (selection) {
+    return labelToResult.get(selection) ?? "deny";
+  }
+  return timedOut ? "timeout" : "deny";
 }
 
 export function setupPathAccessHook(pi: ExtensionAPI): void {
@@ -326,14 +405,14 @@ export function setupPathAccessHook(pi: ExtensionAPI): void {
       const displayDir = normalizeForDisplay(parentDir, ctx.cwd);
       const showFileOptions = !isDirectoryTool;
 
-      const result = await ctx.ui.custom<PromptResult>(
-        createPromptComponent(
-          toolName,
-          displayPath,
-          displayDir,
-          ctx.cwd,
-          showFileOptions,
-        ),
+      const result = await promptForPathAccess(
+        toolName,
+        displayPath,
+        displayDir,
+        ctx.cwd,
+        showFileOptions,
+        config.prompts.timeoutSeconds,
+        ctx.ui,
       );
 
       // Handle "once" grants: just continue, do NOT add to pending
@@ -374,7 +453,20 @@ export function setupPathAccessHook(pi: ExtensionAPI): void {
         continue;
       }
 
-      // result === "deny"
+      if (result === "timeout") {
+        const reason = buildPromptTimeoutReason(
+          config.prompts.timeoutSeconds ?? 0,
+          "outside-workspace access",
+        );
+        emitBlocked(pi, {
+          feature: "pathAccess",
+          toolName,
+          input: event.input,
+          reason,
+        });
+        return { block: true, reason };
+      }
+
       const reason = "User denied access outside working directory";
       emitBlocked(pi, {
         feature: "pathAccess",

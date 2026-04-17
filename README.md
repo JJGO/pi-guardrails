@@ -58,6 +58,9 @@ Use `/guardrails:settings` to edit config interactively.
     "mode": "ask",
     "allowedPaths": []
   },
+  "prompts": {
+    "timeoutSeconds": 300
+  },
   "policies": {
     "rules": [
       {
@@ -129,6 +132,16 @@ Use:
 
 This starts a subagent that helps build and save one policy rule.
 
+## Prompt timeouts
+
+Guardrails prompts share one timeout setting:
+
+- `prompts.timeoutSeconds` — number of seconds before a prompt auto-denies
+- `null` disables the timeout entirely
+- default: `300` seconds (5 minutes)
+
+Interactive dialogs show a live countdown. When the timeout expires, guardrails blocks the operation and tells the agent that the user appears to be away and no explicit permission was given.
+
 ## Path access
 
 Restrict tool access to the current working directory. When enabled, any tool call targeting a path outside `cwd` is checked against the configured mode:
@@ -147,7 +160,7 @@ Restrict tool access to the current working directory. When enabled, any tool ca
 }
 ```
 
-Grants are stored in project config (always) or session memory (session). The `allowedPaths` array is merged across all config scopes.
+Grants are stored in project config (always) or session memory (session). The `allowedPaths` array is merged across all config scopes. In `ask` mode, prompts use the shared `prompts.timeoutSeconds` setting.
 
 Limitations:
 - Symlinks are not resolved (lexical path comparison only).
@@ -156,7 +169,7 @@ Limitations:
 
 ## Permission gate
 
-Detects dangerous bash commands and prompts user confirmation.
+Detects dangerous bash commands and prompts user confirmation. Confirmation prompts use the shared `prompts.timeoutSeconds` setting.
 
 Built-in dangerous patterns are matched structurally (AST-based) for better accuracy:
 
