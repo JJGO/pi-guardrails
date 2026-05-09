@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import type {
   ExtensionAPI,
   ExtensionUIContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
   Container,
   Key,
@@ -11,7 +11,7 @@ import {
   Spacer,
   Text,
   visibleWidth,
-} from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-tui";
 import { configLoader } from "../config";
 import { extractBashPathCandidates } from "../utils/bash-paths";
 import { emitBlocked } from "../utils/events";

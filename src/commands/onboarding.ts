@@ -3,9 +3,9 @@ import {
   type SettingsTheme,
   Wizard,
 } from "@aliou/pi-utils-settings";
-import { getMarkdownTheme, type Theme } from "@mariozechner/pi-coding-agent";
-import type { Component } from "@mariozechner/pi-tui";
-import { Box, Key, Markdown, matchesKey, Text } from "@mariozechner/pi-tui";
+import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
+import type { Component } from "@earendil-works/pi-tui";
+import { Box, Key, Markdown, matchesKey, Text } from "@earendil-works/pi-tui";
 import type { GuardrailsConfig } from "../config";
 import { CURRENT_VERSION } from "../utils/migration";
 

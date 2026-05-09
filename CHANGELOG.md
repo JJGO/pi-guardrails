@@ -22,7 +22,7 @@
 
 - da0f0b7: chore: update Pi peer and dev package versions to 0.61.0
 
-  - update `@mariozechner/pi-agent-core`, `@mariozechner/pi-ai`, `@mariozechner/pi-coding-agent`, and `@mariozechner/pi-tui` to `0.61.0`
+  - update `@earendil-works/pi-agent-core`, `@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent`, and `@earendil-works/pi-tui` to `0.61.0`
   - verify the extension against Pi 0.61.0 changelogs and docs
   - confirm no source-level migration was needed for namespaced keybinding ids or tool wrapper execute signatures
 
@@ -101,7 +101,7 @@
 
 ### Patch Changes
 
-- 0b5ab5b: Move `@mariozechner/pi-tui` to peer dependencies to avoid bundling the SDK alongside the extension.
+- 0b5ab5b: Move `@earendil-works/pi-tui` to peer dependencies to avoid bundling the SDK alongside the extension.
 - 3ea037a: Replace all `console.error`/`console.warn` calls with a module-level warnings queue. Warnings collected during config loading, migration, and pattern compilation are now drained and reported via `ctx.ui.notify` at `session_start`.
 
 ## 0.7.6

@@ -1,8 +1,8 @@
 import type {
   ExtensionAPI,
   ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
-import { createEventBus } from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
+import { createEventBus } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createEventContext } from "../../tests/utils/pi-context";
 import { buildPromptTimeoutReason } from "../utils/prompt-timeout";

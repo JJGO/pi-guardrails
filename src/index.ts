@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isOnboardingPending } from "./commands/onboarding";
 import { registerGuardrailsOnboardingCommand } from "./commands/onboarding-command";
 import { registerGuardrailsSettings } from "./commands/settings-command";
